@@ -79,7 +79,7 @@ metadata:
 spec:
   serviceAccountName: tekton-demo-triggers-sa
   triggers:
-    - bindings:
+    - binding:
       - name: preview-url-pipelinebinding
       template:
         name: preview-url-triggertemplate
