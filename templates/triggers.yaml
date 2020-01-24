@@ -1,0 +1,127 @@
+---
+apiVersion: tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: preview-url-triggertemplate
+spec:
+  params:
+    - name: gitrevision
+      description: The git revision
+      default: master
+    - name: gitrepositoryurl
+      description: The git repository url
+    - name: pullrequrl
+      description: The git repository url
+    - name: namespace
+      description: The namespace to create the resources
+  resourcetemplates:
+    - apiVersion: tekton.dev/v1alpha1
+      kind: PipelineRun
+      metadata:
+        labels:
+          generated: tekton-demo
+        name: pipeline-preview-url-run-$(uid)
+        namespace: $(params.namespace)
+      spec:
+        serviceAccountName: tekton-demo-triggers-sa
+        pipelineRef:
+          name: preview-url
+        resources:
+          - name: source
+            resourceSpec:
+              type: git
+              params:
+              - name: revision
+                value: $(params.gitrevision)
+              - name: url
+                value: $(params.gitrepositoryurl)
+          - name: pr
+            resourceSpec:
+              type: pullRequest
+              params:
+              - name: url
+                value: $(params.pullrequrl)
+              secrets:
+              - fieldName: authToken
+                secretName: github-secret
+                secretKey: secretToken
+          - name: image
+            resourceSpec:
+              type: image
+              params:
+                - name: url
+                  value: image-registry.openshift-image-registry.svc.cluster.local:5000/$(params.namespace)/demo:$(params.gitrevision)
+
+---
+apiVersion: tekton.dev/v1alpha1
+kind: TriggerBinding
+metadata:
+  name: preview-url-pipelinebinding
+spec:
+  params:
+    - name: namespace
+      value: tekton-demo
+
+    - name: gitrevision
+      value: $(body.pull_request.head.sha)
+
+    - name: gitrepositoryurl
+      value: "https://github.com/$(body.repository.full_name)"
+
+    - name: pullrequrl
+      value: $(body.pull_request.html_url)
+
+---
+apiVersion: tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: preview-url
+spec:
+  serviceAccountName: tekton-demo-triggers-sa
+  triggers:
+    - bindings:
+      - name: preview-url-pipelinebinding
+      template:
+        name: preview-url-triggertemplate
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: tekton-demo-triggers-role
+rules:
+- apiGroups: ["tekton.dev"]
+  resources: ["eventlisteners", "triggerbindings", "triggertemplates", "tasks", "taskruns"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["configmaps", "services"]
+  verbs: ["get", "list", "watch", "delete", "create"]
+- apiGroups: ["extensions"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "delete", "create"]
+- apiGroups: ["route.openshift.io"]
+  resources: ["routes"]
+  verbs: ["get", "list", "watch", "delete", "create", "patch"]
+- apiGroups: ["tekton.dev"]
+  resources: ["pipelineruns", "pipelineresources", "taskruns"]
+  verbs: ["create"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tekton-demo-triggers-binding
+subjects:
+- kind: ServiceAccount
+  name: tekton-demo-triggers-sa
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: tekton-demo-triggers-role
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: tekton-demo-triggers-sa
+secrets:
+  - name: github-secret

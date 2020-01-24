@@ -1,0 +1,38 @@
+---
+apiVersion: v1
+kind: List
+metadata: {}
+items:
+- apiVersion: extensions/v1beta1
+  kind: Deployment
+  metadata:
+    name: tekton-demo-%SHA%
+    labels:
+      deployment: tekton-demo-%SHA%
+      generated: tekton-demo
+  spec:
+    selector:
+      matchLabels:
+        deployment: tekton-demo-%SHA%
+    template:
+      metadata:
+        labels:
+          deployment: tekton-demo-%SHA%
+      spec:
+        containers:
+        - image: image-registry.openshift-image-registry.svc.cluster.local:5000/tekton-demo/demo:%FULLSHA%
+          name: web
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      generated: tekton-demo
+    name: tekton-demo-%SHA%
+  spec:
+    ports:
+    - name: 8080-tcp
+      port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      deployment: tekton-demo-%SHA%
