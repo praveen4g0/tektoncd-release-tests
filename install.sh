@@ -4,7 +4,7 @@ set -eu
 TARGET_NAMESPACE=tekton-demo
 K="kubectl -n ${TARGET_NAMESPACE}"
 O="oc -n ${TARGET_NAMESPACE}"
-GITHUB_TOKEN="$(git config --get github.oauth-token)"
+GITHUB_TOKEN="$(git config --get github.token)"
 
 config_params() {
     if [[ -d $1 ]];then
